@@ -1,0 +1,45 @@
+name: Terraform CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["infra/**"]
+  push:
+    branches: [main]
+    paths: ["infra/**"]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  WORKING_DIR: infra/environments/dev
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: "projects/998317701974/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          service_account: "github-actions-ci@trivia-app-dev-spks.iam.gserviceaccount.com"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform plan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform apply -auto-approve
